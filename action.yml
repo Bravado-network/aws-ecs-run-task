@@ -1,0 +1,36 @@
+name: 'Run AWS ECS Fargate task'
+description: 'Runs an Amazon ECS task'
+branding:
+  icon: 'cloud'
+  color: 'orange'
+inputs:
+  task-definition:
+    description: 'The ECS task definition file name'
+    required: true
+  cluster:
+    description: "The name of the ECS cluster. Will default to the 'default' cluster"
+    required: true
+  subnet:
+    description: "The in which the ECS task will run"
+    required: true
+  security-group:
+    description: "The security group of the ECS task"
+    required: true
+  container-name:
+    description: "Name of container defined in task definition"
+    required: true
+  command:
+    description: "Command that will override docker CDM"
+    required: true
+  wait-timeout-in-seconds:
+    description: "How long to wait for the task reach stopped state, in seconds"
+    required: false
+  wait-for-finish:
+    description: "Whether to wait for tasks to reach stopped state. Will default to not waiting"
+    required: false
+outputs:
+  task-definition-arn:
+    description: 'The ARN of the registered ECS task definition'
+runs:
+  using: 'node16'
+  main: 'dist/index.js'
