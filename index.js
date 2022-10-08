@@ -1,5 +1,5 @@
 import { ECSClient, RegisterTaskDefinitionCommand, RunTaskCommand, waitUntilTasksStopped } from "@aws-sdk/client-ecs";
-import core from "@actions/core"
+const core = require('@actions/core')
 import fs from "fs"
 import path from "path"
 
@@ -55,8 +55,4 @@ const run = async () => {
   }
 }
 
-module.exports = run;
-
-if (require.main === module) {
-    run();
-}
+run()
