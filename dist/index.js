@@ -1,6 +1,86 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ 2932:
+/***/ ((module, __webpack_exports__, __nccwpck_require__) => {
+
+"use strict";
+__nccwpck_require__.r(__webpack_exports__);
+/* harmony import */ var _aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(8209);
+/* harmony import */ var _aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__nccwpck_require__.n(_aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__);
+/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(2186);
+/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__nccwpck_require__.n(_actions_core__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(7147);
+/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__nccwpck_require__.n(fs__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(1017);
+/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__nccwpck_require__.n(path__WEBPACK_IMPORTED_MODULE_2__);
+/* module decorator */ module = __nccwpck_require__.hmd(module);
+
+
+
+
+
+const DEFAULT_WAIT_TIMEOUT_IN_SECONDS = 300
+
+const client = new _aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__.ECSClient({ region: "us-west-2" });
+
+const run = async () => {
+  const taskDefinitionFile = _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('task-definition', { required: true })
+  const cluster = _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('cluster', { required: true })
+  const subnet = _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('subnet', { required: true })
+  const securityGroup = _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('security-group', { required: true })
+  const containerOverride = { 
+    name: _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('container-name', { required: true }),
+    command: _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('command', { required: true }).split(" ")
+  }
+  const waitTimeoutInSeconds = parseInt(_actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('wait-timeout-in-seconds')) || DEFAULT_WAIT_TIMEOUT_IN_SECONDS
+  const waitForFinish = _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('wait-for-finish') || false
+
+  const taskDefinitionPath = path__WEBPACK_IMPORTED_MODULE_2___default().join(process.env.GITHUB_WORKSPACE, taskDefinitionFile)
+  const fileContents = fs__WEBPACK_IMPORTED_MODULE_1___default().readFileSync(taskDefinitionPath, 'utf8');
+  
+  const taskDefinitionCommandResult = await client.send(new _aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__.RegisterTaskDefinitionCommand(JSON.parse(fileContents)))
+  const newTaskDefinitionArn = taskDefinitionCommandResult.taskDefinition.taskDefinitionArn
+  _actions_core__WEBPACK_IMPORTED_MODULE_0___default().setOutput('task-definition-arn', newTaskDefinitionArn);
+
+  // TODO: error handling
+  const result = await client.send(new _aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__.RunTaskCommand({ 
+    cluster: cluster,
+    taskDefinition: newTaskDefinitionArn,
+    count: 1,
+    launchType: "FARGATE",
+    networkConfiguration: {
+      awsvpcConfiguration: {
+        subnets: [subnet],
+        securityGroups: [securityGroup]
+      }
+    },
+    overrides: {
+      containerOverrides: [containerOverride]
+    }
+  }))
+  
+  if (waitForFinish) {
+    const { state } = await (0,_aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__.waitUntilTasksStopped)({
+      client: client,
+      maxWaitTime: waitTimeoutInSeconds,
+      minDelay: 5,
+      maxDelay: 5
+    }, { cluster: cluster, tasks: [result.tasks[0].taskArn] })
+  
+    _actions_core__WEBPACK_IMPORTED_MODULE_0___default().debug(state)
+  }
+}
+
+module.exports = run;
+
+if (__nccwpck_require__.c[__nccwpck_require__.s] === module) {
+    run();
+}
+
+
+/***/ }),
+
 /***/ 7351:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -27424,8 +27504,8 @@ module.exports = JSON.parse('{"amp":"&","apos":"\'","gt":">","lt":"<","quot":"\\
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = __webpack_module_cache__[moduleId] = {
-/******/ 			// no module.id needed
-/******/ 			// no module.loaded needed
+/******/ 			id: moduleId,
+/******/ 			loaded: false,
 /******/ 			exports: {}
 /******/ 		};
 /******/ 	
@@ -27438,9 +27518,15 @@ module.exports = JSON.parse('{"amp":"&","apos":"\'","gt":">","lt":"<","quot":"\\
 /******/ 			if(threw) delete __webpack_module_cache__[moduleId];
 /******/ 		}
 /******/ 	
+/******/ 		// Flag the module as loaded
+/******/ 		module.loaded = true;
+/******/ 	
 /******/ 		// Return the exports of the module
 /******/ 		return module.exports;
 /******/ 	}
+/******/ 	
+/******/ 	// expose the module cache
+/******/ 	__nccwpck_require__.c = __webpack_module_cache__;
 /******/ 	
 /************************************************************************/
 /******/ 	/* webpack/runtime/compat get default export */
@@ -27467,6 +27553,21 @@ module.exports = JSON.parse('{"amp":"&","apos":"\'","gt":">","lt":"<","quot":"\\
 /******/ 		};
 /******/ 	})();
 /******/ 	
+/******/ 	/* webpack/runtime/harmony module decorator */
+/******/ 	(() => {
+/******/ 		__nccwpck_require__.hmd = (module) => {
+/******/ 			module = Object.create(module);
+/******/ 			if (!module.children) module.children = [];
+/******/ 			Object.defineProperty(module, 'exports', {
+/******/ 				enumerable: true,
+/******/ 				set: () => {
+/******/ 					throw new Error('ES Modules may not assign module.exports or exports.*, Use ESM export syntax, instead: ' + module.id);
+/******/ 				}
+/******/ 			});
+/******/ 			return module;
+/******/ 		};
+/******/ 	})();
+/******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */
 /******/ 	(() => {
 /******/ 		__nccwpck_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
@@ -27488,80 +27589,12 @@ module.exports = JSON.parse('{"amp":"&","apos":"\'","gt":">","lt":"<","quot":"\\
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
-var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be in strict mode.
-(() => {
-"use strict";
-__nccwpck_require__.r(__webpack_exports__);
-/* harmony import */ var _aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(8209);
-/* harmony import */ var _aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__nccwpck_require__.n(_aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__);
-/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(2186);
-/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__nccwpck_require__.n(_actions_core__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(7147);
-/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__nccwpck_require__.n(fs__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(1017);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__nccwpck_require__.n(path__WEBPACK_IMPORTED_MODULE_2__);
-
-
-
-
-
-const DEFAULT_WAIT_TIMEOUT_IN_SECONDS = 300
-
-const client = new _aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__.ECSClient({ region: "us-west-2" });
-
-const run = async () => {
-  const taskDefinitionFile = _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('task-definition', { required: true })
-  const cluster = _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('cluster', { required: true })
-  const subnet = _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('subnet', { required: true })
-  const securityGroup = _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('security-group', { required: true })
-  const containerOverride = { 
-    name: _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('container-name', { required: true }),
-    command: _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('command', { required: true }).split(" ")
-  }
-  const waitTimeoutInSeconds = parseInt(_actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('wait-timeout-in-seconds')) || DEFAULT_WAIT_TIMEOUT_IN_SECONDS
-  const waitForFinish = _actions_core__WEBPACK_IMPORTED_MODULE_0___default().getInput('wait-for-finish') || false
-
-  const taskDefinitionPath = path__WEBPACK_IMPORTED_MODULE_2___default().join(process.env.GITHUB_WORKSPACE, taskDefinitionFile)
-  const fileContents = fs__WEBPACK_IMPORTED_MODULE_1___default().readFileSync(taskDefinitionPath, 'utf8');
-  
-  const taskDefinitionCommandResult = await client.send(new _aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__.RegisterTaskDefinitionCommand(JSON.parse(fileContents)))
-  const newTaskDefinitionArn = taskDefinitionCommandResult.taskDefinition.taskDefinitionArn
-  _actions_core__WEBPACK_IMPORTED_MODULE_0___default().setOutput('task-definition-arn', newTaskDefinitionArn);
-
-  // TODO: error handling
-  const result = await client.send(new _aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__.RunTaskCommand({ 
-    cluster: cluster,
-    taskDefinition: newTaskDefinitionArn,
-    count: 1,
-    launchType: "FARGATE",
-    networkConfiguration: {
-      awsvpcConfiguration: {
-        subnets: [subnet],
-        securityGroups: [securityGroup]
-      }
-    },
-    overrides: {
-      containerOverrides: [containerOverride]
-    }
-  }))
-  
-  if (waitForFinish) {
-    const { state } = await (0,_aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_3__.waitUntilTasksStopped)({
-      client: client,
-      maxWaitTime: waitTimeoutInSeconds,
-      minDelay: 5,
-      maxDelay: 5
-    }, { cluster: cluster, tasks: [result.tasks[0].taskArn] })
-  
-    _actions_core__WEBPACK_IMPORTED_MODULE_0___default().debug(state)
-  }
-}
-
-run()
-
-})();
-
-module.exports = __webpack_exports__;
+/******/ 	
+/******/ 	// module cache are used so entry inlining is disabled
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	var __webpack_exports__ = __nccwpck_require__(__nccwpck_require__.s = 2932);
+/******/ 	module.exports = __webpack_exports__;
+/******/ 	
 /******/ })()
 ;
