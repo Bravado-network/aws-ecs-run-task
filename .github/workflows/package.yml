@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  check:
+  package:
     name: Package distribution file
     runs-on: ubuntu-latest
     steps:
