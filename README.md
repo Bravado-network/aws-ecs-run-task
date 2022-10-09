@@ -9,7 +9,7 @@ Registers an Amazon ECS task definition and runs it on ECS.
       uses: Bravado-network/aws-ecs-run-task@v1
       with:
         region: us-west-2
-        task-definition: database-task-definition.json
+        task-definition: ${{ steps.db-migration-task-def.outputs.task-definition }}
         cluster: fargate-poc
         subnet: subnet-08b5429a0e68a8ac3
         security-group: sg-06fcaf42e074c960e
@@ -30,6 +30,7 @@ You can download a previous task definition, modify it and then run the ECS task
     --query taskDefinition > database-task-definition.json
 
 - name: Fill in the new image ID in the Amazon ECS database task definition
+  id: db-migration-task-def
   uses: aws-actions/amazon-ecs-render-task-definition@v1
   with:
     task-definition: database-task-definition.json
@@ -37,10 +38,9 @@ You can download a previous task definition, modify it and then run the ECS task
     image: ${{ steps.login-ecr.outputs.registry }}/fargate-backend-poc:${{ github.sha }}
 
 - name: Run database schema migration
-  uses: Bravado-network/aws-ecs-run-task@v1
+  uses: Bravado-network/aws-ecs-run-task@PLAT-217-run-task
   with:
-    region: us-west-2
-    task-definition: database-task-definition.json
+    task-definition: ${{ steps.db-migration-task-def.outputs.task-definition }}
     cluster: fargate-poc
     subnet: subnet-08b5429a0e68a8ac3
     security-group: sg-06fcaf42e074c960e

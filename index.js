@@ -10,7 +10,9 @@ const client = new ECSClient({ region });
 
 const registerNewTaskDefinition = async () => {
   const taskDefinitionFile = core.getInput("task-definition", { required: true })
-  const taskDefinitionPath = path.join(process.env.GITHUB_WORKSPACE, taskDefinitionFile)
+  const taskDefinitionPath = path.isAbsolute(taskDefinitionFile) ?
+      taskDefinitionFile :
+      path.join(process.env.GITHUB_WORKSPACE, taskDefinitionFile);
   const fileContent = fs.readFileSync(taskDefinitionPath, "utf8");
   
   core.info("Registering the task definition");
