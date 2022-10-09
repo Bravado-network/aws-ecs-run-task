@@ -17,7 +17,7 @@ const registerNewTaskDefinition = async () => {
 
   try {
     const taskDefinitionCommandResult = await client.send(new RegisterTaskDefinitionCommand(JSON.parse(fileContent)))
-    core.info(`New Task definition: ${taskDefinitionCommandResult.taskDefinition}`)
+    core.info(`New Task definition URL: ${JSON.stringify(taskDefinitionCommandResult.taskDefinition)}`)
     return taskDefinitionCommandResult.taskDefinition.taskDefinitionArn
   } catch (error) {
     core.setFailed("Failed to register task definition in ECS: " + error.message);
@@ -52,7 +52,7 @@ const runTask = async (taskDefinitionArn) => {
     }
   }))
 
-  core.info(result)
+  core.info(JSON.stringify(result))
   core.info(`Task execution has started. Watch the execution logs in AWS console: URL`);
   return result
 }
