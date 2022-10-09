@@ -27511,7 +27511,9 @@ const client = new _aws_sdk_client_ecs__WEBPACK_IMPORTED_MODULE_2__.ECSClient({ 
 
 const registerNewTaskDefinition = async () => {
   const taskDefinitionFile = core.getInput("task-definition", { required: true })
-  const taskDefinitionPath = path__WEBPACK_IMPORTED_MODULE_1___default().join(process.env.GITHUB_WORKSPACE, taskDefinitionFile)
+  const taskDefinitionPath = path__WEBPACK_IMPORTED_MODULE_1___default().isAbsolute(taskDefinitionFile) ?
+      taskDefinitionFile :
+      path__WEBPACK_IMPORTED_MODULE_1___default().join(process.env.GITHUB_WORKSPACE, taskDefinitionFile);
   const fileContent = fs__WEBPACK_IMPORTED_MODULE_0___default().readFileSync(taskDefinitionPath, "utf8");
   
   core.info("Registering the task definition");
