@@ -17,7 +17,9 @@ const registerNewTaskDefinition = async () => {
 
   try {
     const taskDefinitionCommandResult = await client.send(new RegisterTaskDefinitionCommand(JSON.parse(fileContent)))
-    core.info(`New Task definition URL: ${JSON.stringify(taskDefinitionCommandResult.taskDefinition)}`)
+    const { family, revision } = taskDefinitionCommandResult.taskDefinition
+    core.info(`New Task definition URL: https://${region}.console.aws.amazon.com/ecs/v2/task-definitions/${family}/${revision}/containers`)
+    
     return taskDefinitionCommandResult.taskDefinition.taskDefinitionArn
   } catch (error) {
     core.setFailed("Failed to register task definition in ECS: " + error.message);
@@ -31,10 +33,8 @@ const runTask = async (taskDefinitionArn) => {
   const cluster = core.getInput("cluster", { required: true })
   const subnet = core.getInput("subnet", { required: true })
   const securityGroup = core.getInput("security-group", { required: true })
-  const containerOverride = { 
-    name: core.getInput("container-name", { required: true }),
-    command: core.getInput("command", { required: true }).split(" ")
-  }
+  const containerName = core.getInput("container-name", { required: true })
+  const command = core.getInput("command", { required: true }).split(" ")
 
   const result = await client.send(new RunTaskCommand({ 
     cluster: cluster,
@@ -48,12 +48,12 @@ const runTask = async (taskDefinitionArn) => {
       }
     },
     overrides: {
-      containerOverrides: [containerOverride]
+      containerOverrides: [{ name: containerName, command }]
     }
   }))
-
-  core.info(JSON.stringify(result))
-  core.info(`Task execution has started. Watch the execution logs in AWS console: URL`);
+  
+  const taskId = result.tasks[0].taskArn.split(`${cluster}/`)[1]
+  core.info(`Task execution has started with command: ${command}. Watch the execution logs in AWS console: https://${region}.console.aws.amazon.com/ecs/v2/clusters/${cluster}/tasks/${taskId}/configuration/containers/${containerName}`);
   return result
 }
 
