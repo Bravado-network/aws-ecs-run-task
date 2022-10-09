@@ -28,9 +28,6 @@ inputs:
   wait-for-finish:
     description: "Whether to wait for tasks to reach stopped state. Will default to not waiting"
     required: false
-outputs:
-  task-definition-arn:
-    description: 'The ARN of the registered ECS task definition'
 runs:
   using: 'node16'
   main: 'dist/index.js'

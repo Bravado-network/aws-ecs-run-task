@@ -1,35 +1,44 @@
 import { ECSClient, RegisterTaskDefinitionCommand, RunTaskCommand, waitUntilTasksStopped } from "@aws-sdk/client-ecs";
-const core = require('@actions/core')
 import fs from "fs"
 import path from "path"
+const core = require("@actions/core")
 
 const DEFAULT_WAIT_TIMEOUT_IN_SECONDS = 300
 
-const client = new ECSClient({ region: "us-west-2" });
+const region = core.getInput("region", { required: true });
+const client = new ECSClient({ region });
 
-const run = async () => {
-  const taskDefinitionFile = core.getInput('task-definition', { required: true })
-  const cluster = core.getInput('cluster', { required: true })
-  const subnet = core.getInput('subnet', { required: true })
-  const securityGroup = core.getInput('security-group', { required: true })
-  const containerOverride = { 
-    name: core.getInput('container-name', { required: true }),
-    command: core.getInput('command', { required: true }).split(" ")
-  }
-  const waitTimeoutInSeconds = parseInt(core.getInput('wait-timeout-in-seconds')) || DEFAULT_WAIT_TIMEOUT_IN_SECONDS
-  const waitForFinish = core.getInput('wait-for-finish') || false
-
+const registerNewTaskDefinition = async () => {
+  const taskDefinitionFile = core.getInput("task-definition", { required: true })
   const taskDefinitionPath = path.join(process.env.GITHUB_WORKSPACE, taskDefinitionFile)
-  const fileContents = fs.readFileSync(taskDefinitionPath, 'utf8');
+  const fileContent = fs.readFileSync(taskDefinitionPath, "utf8");
   
-  const taskDefinitionCommandResult = await client.send(new RegisterTaskDefinitionCommand(JSON.parse(fileContents)))
-  const newTaskDefinitionArn = taskDefinitionCommandResult.taskDefinition.taskDefinitionArn
-  core.setOutput('task-definition-arn', newTaskDefinitionArn);
+  core.info("Registering the task definition");
 
-  // TODO: error handling
+  try {
+    const taskDefinitionCommandResult = await client.send(new RegisterTaskDefinitionCommand(JSON.parse(fileContent)))
+    core.info(`New Task definition: ${taskDefinitionCommandResult.taskDefinition}`)
+    return taskDefinitionCommandResult.taskDefinition.taskDefinitionArn
+  } catch (error) {
+    core.setFailed("Failed to register task definition in ECS: " + error.message);
+    core.info("Task definition contents:");
+    core.info(fileContent);
+    throw(error);
+  }
+}
+
+const runTask = async (taskDefinitionArn) => {
+  const cluster = core.getInput("cluster", { required: true })
+  const subnet = core.getInput("subnet", { required: true })
+  const securityGroup = core.getInput("security-group", { required: true })
+  const containerOverride = { 
+    name: core.getInput("container-name", { required: true }),
+    command: core.getInput("command", { required: true }).split(" ")
+  }
+
   const result = await client.send(new RunTaskCommand({ 
     cluster: cluster,
-    taskDefinition: newTaskDefinitionArn,
+    taskDefinition: taskDefinitionArn,
     count: 1,
     launchType: "FARGATE",
     networkConfiguration: {
@@ -42,16 +51,35 @@ const run = async () => {
       containerOverrides: [containerOverride]
     }
   }))
-  
-  if (waitForFinish) {
-    const { state } = await waitUntilTasksStopped({
-      client: client,
-      maxWaitTime: waitTimeoutInSeconds,
-      minDelay: 5,
-      maxDelay: 5
-    }, { cluster: cluster, tasks: [result.tasks[0].taskArn] })
-  
-    core.debug(state)
+
+  core.info(result)
+  core.info(`Task execution has started. Watch the execution logs in AWS console: URL`);
+  return result
+}
+
+const run = async () => {
+  try {
+    const newTaskDefinitionArn = await registerNewTaskDefinition()
+    const runTaskResult = await runTask(newTaskDefinitionArn)
+
+    const waitForFinish = core.getInput("wait-for-finish") || false
+    if (waitForFinish) {
+      const cluster = core.getInput("cluster", { required: true })
+      const waitTimeoutInSeconds = parseInt(core.getInput("wait-timeout-in-seconds")) || DEFAULT_WAIT_TIMEOUT_IN_SECONDS
+
+      core.info(`Waiting for the task to complete. Will wait for ${waitTimeoutInSeconds / 60} minutes`);
+      const { state } = await waitUntilTasksStopped({
+        client: client,
+        maxWaitTime: waitTimeoutInSeconds,
+        minDelay: 5,
+        maxDelay: 5
+      }, { cluster: cluster, tasks: [runTaskResult.tasks[0].taskArn] })
+    
+      core.info(state)
+    }  
+  } catch (error) {
+    core.setFailed(error.message);
+    core.error(error.stack);
   }
 }
 
