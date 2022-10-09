@@ -8,7 +8,6 @@ Registers an Amazon ECS task definition and runs it on ECS.
     - name: Run database schema migration
       uses: Bravado-network/aws-ecs-run-task@v1
       with:
-        region: us-west-2
         task-definition: ${{ steps.db-migration-task-def.outputs.task-definition }}
         cluster: fargate-poc
         subnet: subnet-08b5429a0e68a8ac3
