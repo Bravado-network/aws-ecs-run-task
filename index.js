@@ -5,7 +5,7 @@ const core = require("@actions/core")
 
 const DEFAULT_WAIT_TIMEOUT_IN_SECONDS = 300
 
-const region = core.getInput("region", { required: true });
+const region = process.env.AWS_REGION
 const client = new ECSClient({ region });
 
 const registerNewTaskDefinition = async () => {
