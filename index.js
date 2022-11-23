@@ -1,4 +1,11 @@
-import { ECSClient, RegisterTaskDefinitionCommand, RunTaskCommand, waitUntilTasksStopped } from "@aws-sdk/client-ecs";
+import { 
+  ECSClient,
+  RegisterTaskDefinitionCommand,
+  RunTaskCommand,
+  waitUntilTasksStopped,
+  DescribeTasksCommand
+} from "@aws-sdk/client-ecs";
+
 import fs from "fs"
 import path from "path"
 const core = require("@actions/core")
@@ -59,25 +66,44 @@ const runTask = async (taskDefinitionArn) => {
   return result
 }
 
+const checkECSTaskExistCode = async (cluster, taskArn) => {
+  const result = await client.send(new DescribeTasksCommand({
+    cluster: cluster,
+    tasks: [taskArn]
+  }))
+
+  result.tasks.forEach(task => {
+    task.containers.forEach(container => {
+      if (container.exitCode !== 0) {
+        core.setFailed(container.reason)
+        core.info("DB migration has failed");
+      }
+    })
+  })
+
+  return result
+}
+
 const run = async () => {
   try {
     const newTaskDefinitionArn = await registerNewTaskDefinition()
     const runTaskResult = await runTask(newTaskDefinitionArn)
+    const taskArn = runTaskResult.tasks[0].taskArn
 
     const waitForFinish = core.getInput("wait-for-finish") || false
     if (waitForFinish) {
       const cluster = core.getInput("cluster", { required: true })
       const waitTimeoutInSeconds = parseInt(core.getInput("wait-timeout-in-seconds")) || DEFAULT_WAIT_TIMEOUT_IN_SECONDS
 
-      core.info(`Waiting for the task to complete. Will wait for ${waitTimeoutInSeconds / 60} minutes`);
-      const { state } = await waitUntilTasksStopped({
+      core.info(`Waiting for the task to complete. Will wait for ${waitTimeoutInSeconds / 60} minutes`)
+      await waitUntilTasksStopped({
         client: client,
         maxWaitTime: waitTimeoutInSeconds,
         minDelay: 5,
         maxDelay: 5
-      }, { cluster: cluster, tasks: [runTaskResult.tasks[0].taskArn] })
+      }, { cluster: cluster, tasks: [taskArn] })
     
-      core.info(state)
+      await checkECSTaskExistCode(cluster, taskArn)
     }  
   } catch (error) {
     core.setFailed(error.message);
