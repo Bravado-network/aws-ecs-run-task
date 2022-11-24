@@ -27570,7 +27570,7 @@ const checkECSTaskExistCode = async (cluster, taskArn) => {
   result.tasks.forEach(task => {
     task.containers.forEach(container => {
       if (container.exitCode !== 0) {
-        core.setFailed(container.reason)
+        core.setFailed(`Reason: ${container.reason}`)
         core.info("DB migration has failed");
       }
     })
