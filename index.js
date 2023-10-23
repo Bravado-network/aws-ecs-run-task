@@ -90,6 +90,8 @@ const run = async () => {
     const runTaskResult = await runTask(newTaskDefinitionArn)
     const taskArn = runTaskResult.tasks[0].taskArn
 
+    core.setOutput('task-arn', "123";
+    
     const waitForFinish = core.getInput("wait-for-finish") || false
     if (waitForFinish) {
       const cluster = core.getInput("cluster", { required: true })
@@ -104,7 +106,6 @@ const run = async () => {
       }, { cluster: cluster, tasks: [taskArn] })
     
       await checkECSTaskExistCode(cluster, taskArn)
-      core.setOutput("task-arn", taskArn);
     }  
   } catch (error) {
     core.setFailed(error.message);
