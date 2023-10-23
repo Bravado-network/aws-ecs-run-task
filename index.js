@@ -104,13 +104,7 @@ const run = async () => {
       }, { cluster: cluster, tasks: [taskArn] })
     
       await checkECSTaskExistCode(cluster, taskArn)
-
-      // Listen for the SIGTERM signal
-      process.on('SIGINT', () => {
-        console.log('Workflow was canceled. Performing cleanup or other actions here.');
-        // Implement your cleanup logic here, such as stopping processes, cleaning up resources, etc.
-        process.exit(0); // Exit the action gracefully
-      });
+      core.setOutput("task-arn", taskArn);
     }  
   } catch (error) {
     core.setFailed(error.message);
