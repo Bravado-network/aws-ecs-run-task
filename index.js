@@ -94,7 +94,7 @@ const run = async () => {
     
     core.setOutput('task-arn', "123");
 
-    core.info(`task-arn: ` $(taskArn))
+    core.info(`task-arn:  $(taskArn)`)
     
     const waitForFinish = core.getInput("wait-for-finish") || false
     if (waitForFinish) {
