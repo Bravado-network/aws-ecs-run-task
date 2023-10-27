@@ -27555,7 +27555,7 @@ const runTask = async (taskDefinitionArn) => {
       containerOverrides: [{ name: containerName, command }]
     }
   }))
-  
+  core.info(`THIS MESSAGE SHOULD BE VISIBLE!`)
   const taskId = result.tasks[0].taskArn.split(`${cluster}/`)[1]
   core.info(`Task execution has started with command: ${command}. Watch the execution logs in AWS console: https://${region}.console.aws.amazon.com/ecs/v2/clusters/${cluster}/tasks/${taskId}/configuration/containers/${containerName}`);
   return result
