@@ -63,7 +63,6 @@ const runTask = async (taskDefinitionArn) => {
   
   const taskId = result.tasks[0].taskArn.split(`${cluster}/`)[1]
   core.info(`Task execution has started with command: ${command}. Watch the execution logs in AWS console: https://${region}.console.aws.amazon.com/ecs/v2/clusters/${cluster}/tasks/${taskId}/configuration/containers/${containerName}`);
-  core.info(`THIS MESSAGE SHOULD BE VISIBLE!`)
   
   return result
 }
@@ -91,12 +90,8 @@ const run = async () => {
     const newTaskDefinitionArn = await registerNewTaskDefinition()
     const runTaskResult = await runTask(newTaskDefinitionArn)
     const taskArn = runTaskResult.tasks[0].taskArn
-
-
     
     core.setOutput('task-arn', taskArn);
-
-    core.info(`task-arn:  $(taskArn)`)
     
     const waitForFinish = core.getInput("wait-for-finish") || false
     if (waitForFinish) {
@@ -110,9 +105,6 @@ const run = async () => {
         minDelay: 5,
         maxDelay: 5
       }, { cluster: cluster, tasks: [taskArn] })
-      process.on('SIGINT', () => {
-        core.info('Workflow was canceled. Performing cleanup or other actions here.');
-      });
       
       await checkECSTaskExistCode(cluster, taskArn)
     }  
