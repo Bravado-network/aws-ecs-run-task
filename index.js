@@ -94,7 +94,7 @@ const run = async () => {
 
 
     
-    core.setOutput('task-arn', "123");
+    core.setOutput('task-arn', taskArn);
 
     core.info(`task-arn:  $(taskArn)`)
     
@@ -110,7 +110,10 @@ const run = async () => {
         minDelay: 5,
         maxDelay: 5
       }, { cluster: cluster, tasks: [taskArn] })
-    
+      process.on('SIGINT', () => {
+        core.info('Workflow was canceled. Performing cleanup or other actions here.');
+      });
+      
       await checkECSTaskExistCode(cluster, taskArn)
     }  
   } catch (error) {
