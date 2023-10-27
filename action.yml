@@ -28,6 +28,9 @@ inputs:
   wait-for-finish:
     description: "Whether to wait for tasks to reach stopped state. Will default to not waiting"
     required: false
+outputs:
+  task-arn:
+    description: 'ARN of the executed task'
 runs:
   using: 'node16'
   main: 'dist/index.js'
