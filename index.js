@@ -10,10 +10,32 @@ import fs from "fs"
 import path from "path"
 const core = require("@actions/core")
 
+import { 
+  CloudWatchLogsClient,
+  GetLogEventsCommand
+} from "@aws-sdk/client-cloudwatch-logs";
+
 const DEFAULT_WAIT_TIMEOUT_IN_SECONDS = 300
 
 const region = process.env.AWS_REGION
 const client = new ECSClient({ region });
+
+const cloudWatchLogsClient = new CloudWatchLogsClient({ region });
+
+const getCloudWatchLogs = async (logGroupName, logStreamName) => {
+  try {
+    const response = await cloudWatchLogsClient.send(new GetLogEventsCommand({
+      logGroupName,
+      logStreamName,
+      startFromHead: true
+    }));
+
+    return response.events.map(event => event.message).join('\n');
+  } catch (error) {
+    core.warning(`Failed to fetch CloudWatch logs: ${error.message}`);
+    return null;
+  }
+};
 
 const registerNewTaskDefinition = async () => {
   const taskDefinitionFile = core.getInput("task-definition", { required: true })
@@ -70,18 +92,29 @@ const checkECSTaskExistCode = async (cluster, taskArn) => {
   const result = await client.send(new DescribeTasksCommand({
     cluster: cluster,
     tasks: [taskArn]
-  }))
+  }));
 
-  result.tasks.forEach(task => {
-    task.containers.forEach(container => {
-      if (container.exitCode !== 0) {
-        core.setFailed(`Reason: ${container.reason}`)
-        core.info("DB migration has failed");
+  for (const task of result.tasks) {
+    for (const container of task.containers) {
+      const logStreamName = `ecs/${container.name}/${task.taskArn.split('/').pop()}`;
+      const logGroupName = `/ecs/${container.name}`;
+
+      const logs = await getCloudWatchLogs(logGroupName, logStreamName);
+      if (logs) {
+        core.info('Container Logs:');
+        core.info('-------------------');
+        core.info(logs);
+        core.info('-------------------');
       }
-    })
-  })
 
-  return result
+      if (container.exitCode !== 0) {
+        core.setFailed(`Reason: ${container.reason}`);
+        core.info("Task has failed");
+      }
+    }
+  }
+
+  return result;
 }
 
 const run = async () => {
