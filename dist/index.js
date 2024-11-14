@@ -60674,35 +60674,6 @@ const runTask = async (taskDefinitionArn) => {
   return result
 }
 
-const checkECSTaskExistCode = async (cluster, taskArn) => {
-  const result = await client.send(new DescribeTasksCommand({
-    cluster: cluster,
-    tasks: [taskArn]
-  }));
-
-  for (const task of result.tasks) {
-    for (const container of task.containers) {
-      const logStreamName = `${container.name}/${container.name}/${task.taskArn.split('/').pop()}`;
-      const logGroupName = `${container.name}-logs`;
-
-      const logs = await getCloudWatchLogs(logGroupName, logStreamName);
-      if (logs) {
-        core.info('Container Logs:');
-        core.info('-------------------');
-        core.info(logs);
-        core.info('-------------------');
-      }
-
-      if (container.exitCode !== 0) {
-        core.setFailed(`Reason: ${container.reason}`);
-        core.info("Task has failed");
-      }
-    }
-  }
-
-  return result;
-}
-
 const getCloudWatchLogsIncremental = async (logGroupName, logStreamName, nextToken = null) => {
   try {
     const params = {
@@ -60727,6 +60698,7 @@ const getCloudWatchLogsIncremental = async (logGroupName, logStreamName, nextTok
 const waitUntilTasksStopped = async (cluster, taskArn) => {
   try {
     // Add initial delay 15 sec before starting to gather logs
+    core.info('Waiting for container to spin up...');
     await new Promise(resolve => setTimeout(resolve, 15000));
     let taskStopped = false;
     let nextTokenMap = {}; // Store nextToken for each container
