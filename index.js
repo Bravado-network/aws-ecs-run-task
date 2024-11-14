@@ -140,6 +140,8 @@ const getCloudWatchLogsIncremental = async (logGroupName, logStreamName, nextTok
 
 const waitUntilTasksStopped = async (cluster, taskArn) => {
   try {
+    // Add initial delay 15 sec before starting to gather logs
+    await new Promise(resolve => setTimeout(resolve, 15000));
     let taskStopped = false;
     let nextTokenMap = {}; // Store nextToken for each container
 
