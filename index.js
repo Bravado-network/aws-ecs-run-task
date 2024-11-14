@@ -96,8 +96,11 @@ const checkECSTaskExistCode = async (cluster, taskArn) => {
 
   for (const task of result.tasks) {
     for (const container of task.containers) {
-      const logStreamName = `ecs/${container.name}/${task.taskArn.split('/').pop()}`;
-      const logGroupName = `/ecs/${container.name}`;
+      const logStreamName = `${container.name}/${container.name}/${task.taskArn.split('/').pop()}`;
+      const logGroupName = `${container.name}-logs`;
+
+      //for debug purposes
+      core.info(`logGroupName: ${logGroupName}, logStreamName ${logStreamName} `);
 
       const logs = await getCloudWatchLogs(logGroupName, logStreamName);
       if (logs) {
