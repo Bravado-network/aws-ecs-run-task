@@ -99,9 +99,6 @@ const checkECSTaskExistCode = async (cluster, taskArn) => {
       const logStreamName = `${container.name}/${container.name}/${task.taskArn.split('/').pop()}`;
       const logGroupName = `${container.name}-logs`;
 
-      //for debug purposes
-      core.info(`logGroupName: ${logGroupName}, logStreamName ${logStreamName} `);
-
       const logs = await getCloudWatchLogs(logGroupName, logStreamName);
       if (logs) {
         core.info('Container Logs:');
@@ -167,13 +164,9 @@ const waitUntilTasksStopped = async (cluster, taskArn) => {
         );
 
         if (response && response.events.length > 0) {
-          core.info(`New logs for ${container.name}:`);
-          core.info('-------------------');
           response.events.forEach(event => {
             core.info(`${event.message}`);
           });
-          core.info('-------------------');
-          
           // Store the nextToken for next iteration
           nextTokenMap[containerKey] = response.nextForwardToken;
         }
