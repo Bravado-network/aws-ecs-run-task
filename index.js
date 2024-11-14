@@ -2,7 +2,7 @@ import {
   ECSClient,
   RegisterTaskDefinitionCommand,
   RunTaskCommand,
-  waitUntilTasksStopped,
+  //waitUntilTasksStopped,
   DescribeTasksCommand
 } from "@aws-sdk/client-ecs";
 
@@ -10,10 +10,32 @@ import fs from "fs"
 import path from "path"
 const core = require("@actions/core")
 
+import { 
+  CloudWatchLogsClient,
+  GetLogEventsCommand
+} from "@aws-sdk/client-cloudwatch-logs";
+
 const DEFAULT_WAIT_TIMEOUT_IN_SECONDS = 300
 
 const region = process.env.AWS_REGION
 const client = new ECSClient({ region });
+
+const cloudWatchLogsClient = new CloudWatchLogsClient({ region });
+
+const getCloudWatchLogs = async (logGroupName, logStreamName) => {
+  try {
+    const response = await cloudWatchLogsClient.send(new GetLogEventsCommand({
+      logGroupName,
+      logStreamName,
+      startFromHead: true
+    }));
+
+    return response.events.map(event => event.message).join('\n');
+  } catch (error) {
+    core.warning(`Failed to fetch CloudWatch logs: ${error.message}`);
+    return null;
+  }
+};
 
 const registerNewTaskDefinition = async () => {
   const taskDefinitionFile = core.getInput("task-definition", { required: true })
@@ -66,23 +88,87 @@ const runTask = async (taskDefinitionArn) => {
   return result
 }
 
-const checkECSTaskExistCode = async (cluster, taskArn) => {
-  const result = await client.send(new DescribeTasksCommand({
-    cluster: cluster,
-    tasks: [taskArn]
-  }))
+const getCloudWatchLogsIncremental = async (logGroupName, logStreamName, nextToken = null) => {
+  try {
+    const params = {
+      logGroupName,
+      logStreamName,
+      startFromHead: true,
+      limit: 100 // Adjust this value as needed
+    };
+    
+    if (nextToken) {
+      params.nextToken = nextToken;
+    }
 
-  result.tasks.forEach(task => {
-    task.containers.forEach(container => {
-      if (container.exitCode !== 0) {
-        core.setFailed(`Reason: ${container.reason}`)
-        core.info("DB migration has failed");
+    const response = await cloudWatchLogsClient.send(new GetLogEventsCommand(params));
+    return response;
+  } catch (error) {
+    core.warning(`Failed to fetch CloudWatch logs: ${error.message}`);
+    return null;
+  }
+};
+
+const waitUntilTasksStopped = async (cluster, taskArn) => {
+  try {
+    // Add initial delay 15 sec before starting to gather logs
+    core.info('Waiting for container to spin up...');
+    await new Promise(resolve => setTimeout(resolve, 15000));
+    let taskStopped = false;
+    let nextTokenMap = {}; // Store nextToken for each container
+
+    while (!taskStopped) {
+      const result = await client.send(new DescribeTasksCommand({
+        cluster: cluster,
+        tasks: [taskArn]
+      }));
+
+      const task = result.tasks[0];
+      
+      // Get logs for each container
+      for (const container of task.containers) {
+        const logStreamName = `${container.name}/${container.name}/${task.taskArn.split('/').pop()}`;
+        const logGroupName = `${container.name}-logs`;
+        const containerKey = `${logGroupName}-${logStreamName}`;
+
+        const response = await getCloudWatchLogsIncremental(
+          logGroupName, 
+          logStreamName, 
+          nextTokenMap[containerKey]
+        );
+
+        if (response && response.events.length > 0) {
+          response.events.forEach(event => {
+            core.info(`${event.message}`);
+          });
+          // Store the nextToken for next iteration
+          nextTokenMap[containerKey] = response.nextForwardToken;
+        }
       }
-    })
-  })
 
-  return result
-}
+      // Check if task is stopped
+      taskStopped = task.lastStatus === 'STOPPED';
+      
+      if (!taskStopped) {
+        // Wait before next poll (adjust as needed)
+        await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
+      } else {
+        // Check final status
+        for (const container of task.containers) {
+          if (container.exitCode !== 0) {
+            core.setFailed(`Container ${container.name} failed with exit code ${container.exitCode}. Reason: ${container.reason || 'Unknown'}`);
+            return false;
+          }
+        }
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    core.setFailed(error.message);
+    return false;
+  }
+};
 
 const run = async () => {
   try {
@@ -96,14 +182,7 @@ const run = async () => {
       const waitTimeoutInSeconds = parseInt(core.getInput("wait-timeout-in-seconds")) || DEFAULT_WAIT_TIMEOUT_IN_SECONDS
 
       core.info(`Waiting for the task to complete. Will wait for ${waitTimeoutInSeconds / 60} minutes`)
-      await waitUntilTasksStopped({
-        client: client,
-        maxWaitTime: waitTimeoutInSeconds,
-        minDelay: 5,
-        maxDelay: 5
-      }, { cluster: cluster, tasks: [taskArn] })
-    
-      await checkECSTaskExistCode(cluster, taskArn)
+      await waitUntilTasksStopped(cluster, taskArn)
     }  
   } catch (error) {
     core.setFailed(error.message);
