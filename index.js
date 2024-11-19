@@ -111,9 +111,7 @@ const getCloudWatchLogsIncremental = async (logGroupName, logStreamName, nextTok
 
 const waitUntilTasksStopped = async (cluster, taskArn) => {
   try {
-    // Add initial delay 15 sec before starting to gather logs
-    core.info('Waiting for container to spin up...');
-    await new Promise(resolve => setTimeout(resolve, 15000));
+
     let taskStopped = false;
     let nextTokenMap = {}; // Store nextToken for each container
 
@@ -182,7 +180,13 @@ const run = async () => {
       const waitTimeoutInSeconds = parseInt(core.getInput("wait-timeout-in-seconds")) || DEFAULT_WAIT_TIMEOUT_IN_SECONDS
 
       core.info(`Waiting for the task to complete. Will wait for ${waitTimeoutInSeconds / 60} minutes`)
+      // Add initial delay 15 sec before starting to gather logs
+      core.info('Waiting for container to spin up...');
+      await new Promise(resolve => setTimeout(resolve, 40000));
+      core.info(`Fetching logs for task: ${taskArn}`);
+
       await waitUntilTasksStopped(cluster, taskArn)
+      
     }  
   } catch (error) {
     core.setFailed(error.message);
